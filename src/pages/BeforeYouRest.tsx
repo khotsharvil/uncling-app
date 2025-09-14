@@ -23,10 +23,11 @@ const BeforeYouRest = () => {
   const [conversationData, setConversationData] = useState({
     whatHelped: "",
     messageToSelf: "",
+    aiReflection: "",
     fullConversation: [] as Message[]
   });
 
-  const userId = "7eb8f894-ca27-4c0d-87d4-c3a18bb6fedf"; // Replace with dynamic later
+  const userId = "7eb8f894-ca27-4c0d-87d4-c3a18bb6fedf"; // Replace dynamically
   const attachmentStyle = localStorage.getItem("attachmentStyle") || "secure";
 
   const questions = [
@@ -53,7 +54,7 @@ const BeforeYouRest = () => {
         timestamp: new Date()
       };
       setMessages([aiMessage]);
-      setConversationData({ whatHelped: "", messageToSelf: "", fullConversation: [aiMessage] });
+      setConversationData({ whatHelped: "", messageToSelf: "", aiReflection: "", fullConversation: [aiMessage] });
     }
     setStep(2);
   };
@@ -91,7 +92,7 @@ const BeforeYouRest = () => {
 
     const fullConversation = [...updatedConversation, aiMessage];
     setMessages(fullConversation);
-    setConversationData(prev => ({ ...prev, fullConversation }));
+    setConversationData(prev => ({ ...prev, fullConversation, aiReflection: aiReply }));
   };
 
   const nextQuestion = async () => {
@@ -104,27 +105,34 @@ const BeforeYouRest = () => {
   };
 
   const saveReflection = async () => {
-    const { whatHelped, messageToSelf } = conversationData;
+    const { whatHelped, messageToSelf, aiReflection } = conversationData;
 
-    const { data, error } = await supabase.from("rest_notes").insert([
-      {
+    const { data, error } = await supabase
+      .from("rest_notes")
+      .insert([{
         user_id: userId,
-        note: `What helped: ${whatHelped}\nMessage to self: ${messageToSelf}`,
-        attachment_style: attachmentStyle
-      }
-    ]).select();
+        notes: `What helped: ${whatHelped}\nMessage to self: ${messageToSelf}`,
+        attachment_style: attachmentStyle,
+        ai_reflection: aiReflection
+      }])
+      .select();
 
     if (error) {
-      console.error("Error saving rest note:", error);
+      console.error("❌ Error saving rest note:", error);
     } else {
       console.log("✅ Rest note saved:", data);
     }
   };
 
   const getSummary = () => {
-    return `Tonight you reflected on what helped you today: "${conversationData.whatHelped}". You also left yourself this loving reminder: "${conversationData.messageToSelf}".`;
+    return `
+Tonight you reflected on what helped you today: "${conversationData.whatHelped}".
+You also left yourself this loving reminder: "${conversationData.messageToSelf}".
+AI Reflection: ${conversationData.aiReflection}
+    `;
   };
 
+  // ---------- Render Steps ----------
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-warm p-4">
@@ -142,7 +150,9 @@ const BeforeYouRest = () => {
                 <Moon className="h-8 w-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold">You made it through today</h2>
-              <p className="text-muted-foreground mb-8">Let's have a gentle conversation about your day before you rest.</p>
+              <p className="text-muted-foreground mb-8">
+                Let's have a gentle conversation about your day before you rest.
+              </p>
               <Button onClick={() => startQuestion(1)} className="w-full">Start Reflection</Button>
             </Card>
           </div>
@@ -153,7 +163,9 @@ const BeforeYouRest = () => {
 
   if (step === 2) {
     const currentQ = questions.find(q => q.id === currentQuestion);
-    const hasAnswered = (currentQuestion === 1 && conversationData.whatHelped) || (currentQuestion === 2 && conversationData.messageToSelf);
+    const hasAnswered =
+      (currentQuestion === 1 && conversationData.whatHelped) ||
+      (currentQuestion === 2 && conversationData.messageToSelf);
 
     return (
       <div className="min-h-screen bg-gradient-warm p-4">
@@ -167,7 +179,7 @@ const BeforeYouRest = () => {
 
           <div className="flex-1 flex flex-col">
             <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-              {messages.map(m => (
+              {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.isUser ? "justify-end" : "justify-start"}`}>
                   <Card className={`max-w-[80%] p-4 ${m.isUser ? "bg-primary text-white" : "bg-white/80"}`}>
                     <p>{m.text}</p>
@@ -185,9 +197,9 @@ const BeforeYouRest = () => {
             <div className="flex gap-2 pt-2 border-t">
               <Input
                 value={inputText}
-                onChange={e => setInputText(e.target.value)}
+                onChange={(e) => setInputText(e.target.value)}
                 placeholder="Your thoughts..."
-                onKeyPress={e => e.key === "Enter" && sendMessage()}
+                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
                 className="flex-1"
               />
               <Button onClick={sendMessage} disabled={!inputText.trim()} size="icon">
@@ -208,7 +220,7 @@ const BeforeYouRest = () => {
             <Moon className="h-8 w-8 text-primary" />
           </div>
           <h2 className="text-xl font-semibold">Your evening reflection</h2>
-          <p className="text-muted-foreground my-6">{getSummary()}</p>
+          <p className="text-muted-foreground my-6 whitespace-pre-line">{getSummary()}</p>
           <Button onClick={() => navigate("/dashboard")} className="w-full">Return to Dashboard</Button>
         </Card>
       </div>
