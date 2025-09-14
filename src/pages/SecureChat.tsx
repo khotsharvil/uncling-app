@@ -18,8 +18,7 @@ interface Message {
 const SecureChat = () => {
   const navigate = useNavigate();
   const userId = "7eb8f894-ca27-4c0d-87d4-c3a18bb6fedf"; // Replace with dynamic user ID later
-  const attachmentStyle =
-    localStorage.getItem("attachmentStyle") || "secure";
+  const attachmentStyle = localStorage.getItem("attachmentStyle") || "secure";
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -63,7 +62,7 @@ const SecureChat = () => {
     };
 
     fetchChatHistory();
-  }, []);
+  }, [userId]);
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
@@ -83,7 +82,9 @@ const SecureChat = () => {
     let aiResponseText = "Let me think about that...";
 
     try {
-      aiResponseText = await generateGeminiResponse(userMessageText);
+      // Include attachment style in the AI prompt
+      const prompt = `Attachment style: ${attachmentStyle}\nUser says: ${userMessageText}`;
+      aiResponseText = await generateGeminiResponse(prompt);
     } catch (err) {
       console.error("Gemini API error:", err);
       aiResponseText =
@@ -142,9 +143,7 @@ const SecureChat = () => {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${
-                  message.isUser ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
               >
                 <Card
                   className={`max-w-[80%] p-4 ${

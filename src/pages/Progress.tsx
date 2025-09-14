@@ -15,10 +15,12 @@ import {
 } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { generateGeminiProgressInsight } from "../lib/generateGeminiProgressInsight";
+import { useAuth } from "../context/AuthContext";
 
 const ProgressView = () => {
   const navigate = useNavigate();
-  const userId = "7eb8f894-ca27-4c0d-87d4-c3a18bb6fedf"; // replace later with dynamic
+  const { user } = useAuth(); // ✅ dynamic user
+  const userId = user?.id;
 
   const [checkIns, setCheckIns] = useState<any[]>([]);
   const [restNotes, setRestNotes] = useState<any[]>([]);
@@ -28,6 +30,8 @@ const ProgressView = () => {
   const [highlights, setHighlights] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!userId) return; // wait until user is loaded
+
     const fetchData = async () => {
       const { data: checkInsData } = await supabase
         .from("check_ins")
@@ -35,17 +39,16 @@ const ProgressView = () => {
         .eq("user_id", userId)
         .order("created_at", { ascending: true });
 
-      setCheckIns(checkInsData || []);
-
       const { data: restData } = await supabase
         .from("rest_notes")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
+      setCheckIns(checkInsData || []);
       setRestNotes(restData || []);
 
-      // calculate avg mood & weekly change
+      // --- calculate avg mood & weekly change ---
       if (checkInsData && checkInsData.length > 0) {
         const numericMoods = checkInsData.map((c) =>
           typeof c.mood === "number" ? c.mood : parseInt(c.mood) || 0
@@ -53,58 +56,42 @@ const ProgressView = () => {
         const avg = numericMoods.reduce((a, b) => a + b, 0) / numericMoods.length;
         setAvgMood(avg);
 
-        // split by week
         const now = new Date();
         const lastWeek = new Date(now);
         lastWeek.setDate(now.getDate() - 7);
 
         const thisWeek = numericMoods.filter(
-          (c, i) => new Date(checkInsData[i].created_at) >= lastWeek
+          (_, i) => new Date(checkInsData[i].created_at) >= lastWeek
         );
         const prevWeek = numericMoods.filter(
-          (c, i) => new Date(checkInsData[i].created_at) < lastWeek
+          (_, i) => new Date(checkInsData[i].created_at) < lastWeek
         );
 
-        const thisWeekAvg =
-          thisWeek.length > 0
-            ? thisWeek.reduce((a, b) => a + b, 0) / thisWeek.length
-            : 0;
-        const prevWeekAvg =
-          prevWeek.length > 0
-            ? prevWeek.reduce((a, b) => a + b, 0) / prevWeek.length
-            : 0;
+        const thisWeekAvg = thisWeek.length ? thisWeek.reduce((a, b) => a + b, 0) / thisWeek.length : 0;
+        const prevWeekAvg = prevWeek.length ? prevWeek.reduce((a, b) => a + b, 0) / prevWeek.length : 0;
 
         setWeeklyChange(thisWeekAvg - prevWeekAvg);
       }
 
-      // highlights: pick 2 positive notes
+      // --- highlights ---
       const positiveNotes = checkInsData
         ?.map((c) => c.notes)
-        .filter((n) => n && n.toLowerCase().includes("good" || "grateful"))
+        .filter((n) => n && (n.toLowerCase().includes("good") || n.toLowerCase().includes("grateful")))
         .slice(0, 2);
+
       const restHighlights = restData?.map((r) => r.notes).slice(0, 1);
       setHighlights([...(positiveNotes || []), ...(restHighlights || [])]);
 
-      // prepare notes for AI
+      // --- AI Insight ---
       const combinedNotes = [
         ...(checkInsData?.map((c) => c.notes) || []),
         ...(restData?.map((n) => n.notes) || []),
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
 
       if (combinedNotes.length > 0) {
         const rawInsight = await generateGeminiProgressInsight(combinedNotes);
-        // format into structured guidance
         setAiInsight(
-          `🌟 **Strengths**\n- ${
-            rawInsight.split(".")[0] || "You're showing resilience."
-          }\n\n⚡ **Challenges**\n- ${
-            rawInsight.split(".")[1] || "Some emotional dips are present."
-          }\n\n🚀 **Next Steps**\n- ${
-            rawInsight.split(".")[2] ||
-            "Keep building on what helps you, and track small wins daily."
-          }`
+          `🌟 **Strengths**\n- ${rawInsight.split(".")[0] || "You're showing resilience."}\n\n⚡ **Challenges**\n- ${rawInsight.split(".")[1] || "Some emotional dips are present."}\n\n🚀 **Next Steps**\n- ${rawInsight.split(".")[2] || "Keep building on what helps you, and track small wins daily."}`
         );
       } else {
         setAiInsight("Not enough data yet to generate an insight.");
@@ -139,16 +126,10 @@ const ProgressView = () => {
               Average Mood: <b>{avgMood.toFixed(1)}/10</b>
             </p>
             <Progress value={(avgMood / 10) * 100} className="h-3" />
-            <p
-              className={`text-xs mt-2 ${
-                weeklyChange >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
+            <p className={`text-xs mt-2 ${weeklyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
               {weeklyChange >= 0
                 ? `▲ Improved by ${weeklyChange.toFixed(1)} from last week`
-                : `▼ Dropped by ${Math.abs(weeklyChange).toFixed(
-                    1
-                  )} from last week`}
+                : `▼ Dropped by ${Math.abs(weeklyChange).toFixed(1)} from last week`}
             </p>
           </Card>
 
@@ -159,21 +140,14 @@ const ProgressView = () => {
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={checkIns}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="created_at"
-                    tickFormatter={(date) =>
-                      new Date(date).toLocaleDateString()
-                    }
-                  />
+                  <XAxis dataKey="created_at" tickFormatter={(date) => new Date(date).toLocaleDateString()} />
                   <YAxis domain={[0, 10]} />
                   <Tooltip />
                   <Line type="monotone" dataKey="mood" stroke="#3b82f6" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-muted-foreground text-sm">
-                No mood data yet.
-              </p>
+              <p className="text-muted-foreground text-sm">No mood data yet.</p>
             )}
           </Card>
 
@@ -187,9 +161,7 @@ const ProgressView = () => {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No highlights captured yet.
-              </p>
+              <p className="text-sm text-muted-foreground">No highlights captured yet.</p>
             )}
           </Card>
 

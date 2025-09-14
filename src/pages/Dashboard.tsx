@@ -1,13 +1,40 @@
-
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Heart, Shield, MessageCircle, TrendingUp, Settings, Moon } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const attachmentStyle = localStorage.getItem("attachmentStyle") || "secure";
-  const streak = parseInt(localStorage.getItem("streak") || "0");
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  const [attachmentStyle, setAttachmentStyle] = useState("secure");
+  const [streak, setStreak] = useState(0);
+
+  // Fetch user info dynamically
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("attachment_style, streak")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user data:", error);
+      } else {
+        setAttachmentStyle(data?.attachment_style || "secure");
+        setStreak(data?.streak || 0);
+      }
+    };
+
+    fetchUserData();
+  }, [userId]);
 
   const getStyleMessage = (style: string) => {
     const messages = {
@@ -55,9 +82,7 @@ const Dashboard = () => {
                   <Heart className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="font-semibold text-foreground">Check In Now</h3>
-                <p className="text-xs text-muted-foreground">
-                  Daily moment of reflection
-                </p>
+                <p className="text-xs text-muted-foreground">Daily moment of reflection</p>
               </div>
             </Card>
 
@@ -70,9 +95,7 @@ const Dashboard = () => {
                   <Shield className="h-6 w-6 text-red-600" />
                 </div>
                 <h3 className="font-semibold text-foreground">I'm Triggered</h3>
-                <p className="text-xs text-muted-foreground">
-                  Calm yourself right now
-                </p>
+                <p className="text-xs text-muted-foreground">Calm yourself right now</p>
               </div>
             </Card>
 
@@ -85,9 +108,7 @@ const Dashboard = () => {
                   <MessageCircle className="h-6 w-6 text-green-600" />
                 </div>
                 <h3 className="font-semibold text-foreground">Secure Self</h3>
-                <p className="text-xs text-muted-foreground">
-                  Talk it through
-                </p>
+                <p className="text-xs text-muted-foreground">Talk it through</p>
               </div>
             </Card>
 
@@ -100,9 +121,7 @@ const Dashboard = () => {
                   <Moon className="h-6 w-6 text-purple-600" />
                 </div>
                 <h3 className="font-semibold text-foreground">Before You Rest</h3>
-                <p className="text-xs text-muted-foreground">
-                  Evening reflection
-                </p>
+                <p className="text-xs text-muted-foreground">Evening reflection</p>
               </div>
             </Card>
           </div>
@@ -116,9 +135,7 @@ const Dashboard = () => {
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-foreground">Progress</h3>
-              <p className="text-xs text-muted-foreground">
-                See your growth
-              </p>
+              <p className="text-xs text-muted-foreground">See your growth</p>
             </div>
           </Card>
         </div>
