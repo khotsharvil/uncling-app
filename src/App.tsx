@@ -34,6 +34,7 @@ const AppRoutes = () => {
           !hasSeenSplash ? (
             <SplashScreen onContinue={() => setHasSeenSplash(true)} />
           ) : !user ? (
+            // 👇 After splash → show login
             <AuthPage />
           ) : !hasCompletedOnboarding ? (
             <Onboarding onComplete={() => setHasCompletedOnboarding(true)} />
