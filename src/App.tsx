@@ -31,25 +31,23 @@ const AppRoutes = () => {
 
   // Redirect Logic
   useEffect(() => {
-    // Return early if we are still loading the auth state
     if (loading) return;
 
-    // Check for onboarding completion from localStorage
     const isOnboardingComplete = localStorage.getItem("onboardingComplete") === "true";
 
-    // ✅ Single, clean redirection logic
+    let targetPath = "/";
     if (!hasSeenSplash) {
-      navigate("/", { replace: true });
+      targetPath = "/";
     } else if (!user) {
-      navigate("/auth", { replace: true });
+      targetPath = "/auth";
     } else if (!isOnboardingComplete) {
-      navigate("/onboarding", { replace: true });
+      targetPath = "/onboarding";
     } else {
-      // If we are on a path like /auth or /onboarding but should be on dashboard
-      // redirect the user.
-      if (window.location.pathname === "/auth" || window.location.pathname === "/onboarding") {
-        navigate("/dashboard", { replace: true });
-      }
+      targetPath = "/dashboard";
+    }
+
+    if (window.location.pathname !== targetPath) {
+      navigate(targetPath, { replace: true });
     }
   }, [hasSeenSplash, user, loading, navigate]);
 
@@ -65,7 +63,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<SplashScreen onContinue={() => setHasSeenSplash(true)} />} />
+      <Route path="/" element={<SplashScreen onContinue={() => { setHasSeenSplash(true); localStorage.setItem("hasSeenSplash", "true"); navigate("/auth", { replace: true }); }} />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route
         path="/onboarding"
