@@ -5,18 +5,44 @@ import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { useAuth } from "../context/AuthContext"; // ✅ use auth context
+import { useAuth } from "../context/AuthContext";
 
 interface OnboardingProps {
   onComplete: () => void;
 }
 
 const questions = [
-  // ... same questions as your current code ...
+  {
+    question: "How do you usually feel in relationships?",
+    answers: [
+      { text: "Secure and comfortable", value: "secure" },
+      { text: "Often worried or anxious", value: "anxious" },
+      { text: "Prefer distance / independence", value: "avoidant" },
+      { text: "A mix of different feelings", value: "mixed" },
+    ],
+  },
+  {
+    question: "What do you want to improve the most?",
+    answers: [
+      { text: "Managing emotions", value: "emotions" },
+      { text: "Building trust", value: "trust" },
+      { text: "Reducing anxiety", value: "reduce_anxiety" },
+      { text: "Improving communication", value: "communication" },
+    ],
+  },
+  {
+    question: "How do you usually cope with stress?",
+    answers: [
+      { text: "Talk to someone", value: "talk" },
+      { text: "Keep it to myself", value: "self" },
+      { text: "Distract with activities", value: "distract" },
+      { text: "Other", value: "other" },
+    ],
+  },
 ];
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
-  const { user } = useAuth(); // ✅ get logged-in user
+  const { user } = useAuth();
   const userId = user?.id;
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -24,51 +50,79 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [selectedAnswer, setSelectedAnswer] = useState("");
 
   const handleNext = async () => {
-    const newAnswers = [...answers, selectedAnswer];
-    setAnswers(newAnswers);
+    // Add current selection to answers using functional update to avoid stale state
+    let newAnswers: string[] = [];
+    setAnswers((prev) => {
+      newAnswers = [...prev, selectedAnswer];
+      return newAnswers;
+    });
 
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+      // Use functional update to avoid race conditions on rapid clicks
+      setCurrentQuestion((prev) => Math.min(prev + 1, questions.length - 1));
       setSelectedAnswer("");
-    } else {
-      // Calculate attachment style
-      const counts = newAnswers.reduce((acc, answer) => {
-        acc[answer] = (acc[answer] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const attachmentStyle = Object.keys(counts).reduce((a, b) =>
-        counts[a] > counts[b] ? a : b
-      );
-
-      localStorage.setItem("attachmentStyle", attachmentStyle);
-
-      if (!userId) {
-        console.error("No logged-in user found.");
-        return;
-      }
-
-      // ✅ Update existing user instead of inserting new
-      const { data, error } = await supabase
-        .from('users')
-        .update({
-          attachment_style: attachmentStyle,
-          tone_preference: 'kind',
-          summary_notes: ''
-        })
-        .eq('id', userId)
-        .select();
-
-      if (error) {
-        console.error('Error updating user:', error);
-      } else {
-        console.log('User updated:', data);
-        onComplete();
-      }
+      return;
     }
+
+    // Logic for when onboarding is complete
+    const counts = newAnswers.reduce((acc, answer) => {
+      acc[answer] = (acc[answer] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const attachmentStyle = Object.keys(counts).reduce((a, b) =>
+      counts[a] > counts[b] ? a : b
+    );
+
+    localStorage.setItem("attachmentStyle", attachmentStyle);
+
+    if (!userId) {
+      console.error("No logged-in user found.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        attachment_style: attachmentStyle,
+        tone_preference: 'kind',
+        summary_notes: ''
+      })
+      .eq('id', userId)
+      .select();
+
+    if (error) {
+      console.error('Error updating user:', error);
+    } else {
+      console.log('User updated:', data);
+    }
+
+    // ✅ Sets a state that triggers the final return, then calls onComplete
+    setCurrentQuestion(questions.length);
+    onComplete();
   };
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
+
+  // ✅ Safety Check: This prevents the crash by returning a completion message
+  // as soon as the state indicates onboarding is done.
+  if (currentQuestion >= questions.length) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Onboarding complete! You will be redirected shortly.</p>
+      </div>
+    );
+  }
+
+  const currentQ = questions[currentQuestion];
+  // Defensive guard against out-of-range indices during rapid state changes
+  if (!currentQ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Onboarding starting...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-calm">
@@ -87,7 +141,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
         <div className="space-y-6">
           <h3 className="text-lg font-medium text-foreground leading-relaxed">
-            {questions[currentQuestion].question}
+            {currentQ?.question ?? ""}
           </h3>
 
           <RadioGroup
@@ -95,14 +149,14 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             onValueChange={setSelectedAnswer}
             className="space-y-4"
           >
-            {questions[currentQuestion].answers.map((answer, index) => (
+            {currentQ?.answers?.map((answer, index) => (
               <div key={index} className="flex items-start space-x-3">
-                <RadioGroupItem 
-                  value={answer.value} 
+                <RadioGroupItem
+                  value={answer.value}
                   id={`answer-${index}`}
                   className="mt-1"
                 />
-                <Label 
+                <Label
                   htmlFor={`answer-${index}`}
                   className="text-sm leading-relaxed cursor-pointer flex-1"
                 >
@@ -118,15 +172,18 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             variant="outline"
             onClick={() => {
               if (currentQuestion > 0) {
-                setCurrentQuestion(currentQuestion - 1);
-                setSelectedAnswer(answers[currentQuestion - 1] || "");
+                setCurrentQuestion((prev) => {
+                  const newIndex = Math.max(prev - 1, 0);
+                  setSelectedAnswer(answers[newIndex] || "");
+                  return newIndex;
+                });
               }
             }}
             disabled={currentQuestion === 0}
           >
             Previous
           </Button>
-          
+
           <Button
             onClick={handleNext}
             disabled={!selectedAnswer}

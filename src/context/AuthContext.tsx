@@ -3,18 +3,21 @@ import { supabase } from "../supabaseClient";
 
 interface AuthContextType {
   user: any | null;
+  loading: boolean; // ✅ Added loading property
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  loading: true, // ✅ Updated default value
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true); // ✅ Added loading state
 
   // 🔹 Google Sign-in function
   const signInWithGoogle = async () => {
@@ -33,17 +36,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Get initial session after redirect
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user || null);
-    });
-
-    // Listen for login/logout changes
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user || null);
+        setLoading(false); // ✅ Set loading to false after the auth state is known
       }
     );
+
+    // Initial check for session to handle page load
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user || null);
+      setLoading(false);
+    });
 
     return () => {
       subscription?.subscription?.unsubscribe?.();
@@ -51,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
