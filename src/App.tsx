@@ -36,14 +36,13 @@ const AppRoutes = () => {
     const isOnboardingComplete = localStorage.getItem("onboardingComplete") === "true";
 
     let targetPath = "/";
-    if (!hasSeenSplash) {
+    // Prioritize authenticated user first to avoid loops after OAuth
+    if (user) {
+      targetPath = isOnboardingComplete ? "/dashboard" : "/onboarding";
+    } else if (!hasSeenSplash) {
       targetPath = "/";
-    } else if (!user) {
-      targetPath = "/auth";
-    } else if (!isOnboardingComplete) {
-      targetPath = "/onboarding";
     } else {
-      targetPath = "/dashboard";
+      targetPath = "/auth";
     }
 
     if (window.location.pathname !== targetPath) {

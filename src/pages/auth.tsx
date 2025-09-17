@@ -10,6 +10,9 @@ const AuthPage = () => {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
     });
     if (error) setMessage(error.message);
   };
@@ -20,7 +23,7 @@ const AuthPage = () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: "http://localhost:5173/dashboard" },
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     });
     if (error) {
       setMessage(error.message);
