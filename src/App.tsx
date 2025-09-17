@@ -29,6 +29,19 @@ const AppRoutes = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  // Clean OAuth tokens from URL ASAP after redirect (before other logic)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hasTokensInUrl =
+        window.location.hash.includes("access_token") ||
+        window.location.search.includes("access_token") ||
+        window.location.search.includes("code");
+      if (hasTokensInUrl) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, []);
+
   // Redirect Logic
   useEffect(() => {
     if (loading) return;
