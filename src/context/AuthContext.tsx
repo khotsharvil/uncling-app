@@ -40,6 +40,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (_event, session) => {
         setUser(session?.user || null);
         setLoading(false); // ✅ Set loading to false after the auth state is known
+
+        // Clean URL after OAuth redirect to avoid re-parsing tokens and warnings
+        if (typeof window !== "undefined") {
+          const hasTokensInUrl =
+            window.location.hash.includes("access_token") ||
+            window.location.search.includes("access_token") ||
+            window.location.search.includes("code");
+          if (hasTokensInUrl) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
       }
     );
 
@@ -47,6 +58,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user || null);
       setLoading(false);
+
+      // Also clean URL on initial load if tokens are present
+      if (typeof window !== "undefined") {
+        const hasTokensInUrl =
+          window.location.hash.includes("access_token") ||
+          window.location.search.includes("access_token") ||
+          window.location.search.includes("code");
+        if (hasTokensInUrl) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
     });
 
     return () => {

@@ -21,7 +21,7 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from("users")
-        .select("attachment_style, streak")
+        .select("attachment_style")
         .eq("id", userId)
         .single();
 
@@ -29,7 +29,7 @@ const Dashboard = () => {
         console.error("Error fetching user data:", error);
       } else {
         setAttachmentStyle(data?.attachment_style || "secure");
-        setStreak(data?.streak || 0);
+        setStreak(0);
       }
     };
 
