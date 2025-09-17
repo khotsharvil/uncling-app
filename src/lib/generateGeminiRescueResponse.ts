@@ -3,10 +3,15 @@ import axios from "axios";
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const isMissingKey = !GEMINI_API_KEY || GEMINI_API_KEY === "undefined" || GEMINI_API_KEY === "null";
 export const generateGeminiRescueResponse = async (
   conversation: { text: string; isUser: boolean }[]
 ) => {
   try {
+    if (isMissingKey) {
+      console.error("Gemini API key missing: set VITE_GEMINI_API_KEY in your env");
+      return "Sorry, the AI service is temporarily unavailable.";
+    }
     const introMessage =
       "You are a compassionate, trauma-aware mental health assistant helping someone who is in a *triggered emotional state*. Your replies should be mid to short, gentle, and ask quetions to know what exactly they are feeling and reply which can help them feel better. Empathize and help ground them.once you feel like user is getting comfortable and not triggred after like 8-9 exchange of sentence(maybe less or more depends on user), give them message based on convo to let them know that the reason which caused trigger dont define user or something like that";
 

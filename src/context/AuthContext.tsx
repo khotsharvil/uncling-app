@@ -36,28 +36,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Handle OAuth redirect: exchange code/hash for a session
-    (async () => {
-      try {
-        if (typeof window !== "undefined") {
-          const hasTokensInUrl =
-            window.location.hash.includes("access_token") ||
-            window.location.search.includes("access_token") ||
-            window.location.search.includes("code");
-          if (hasTokensInUrl) {
-            const { data, error } = await supabase.auth.exchangeCodeForSession({ storeSession: true });
-            if (!error && data?.session?.user) {
-              setUser(data.session.user);
-            }
-            // Clean URL to remove tokens
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        }
-      } catch (e) {
-        // noop; will fall back to getSession below
-      }
-    })();
-
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user || null);

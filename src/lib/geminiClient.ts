@@ -4,9 +4,10 @@ const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const isMissingKey = !GEMINI_API_KEY || GEMINI_API_KEY === "undefined" || GEMINI_API_KEY === "null";
 export const generateGeminiResponse = async (userMessage: string) => {
   try {
-    if (!GEMINI_API_KEY) {
+    if (isMissingKey) {
       console.error("Gemini API key missing: set VITE_GEMINI_API_KEY in your env");
       return "Sorry, the AI service is temporarily unavailable.";
     }
