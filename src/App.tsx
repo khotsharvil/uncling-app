@@ -1,11 +1,11 @@
 // src/App.tsx
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
@@ -23,67 +23,48 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// This component handles the routing based on auth and onboarding status
-const AppRoutes = () => {
-  const [hasSeenSplash, setHasSeenSplash] = useState(() => localStorage.getItem("hasSeenSplash") === "true");
+// A simple component to handle authentication and onboarding checks for protected routes
+const RequireAuth = ({ children }: { children: JSX.Element }) => {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const location = useLocation();
+  const isOnboardingComplete = localStorage.getItem("onboardingComplete") === "true";
 
-  // Redirect Logic
-  useEffect(() => {
-    if (loading) return;
-
-    // If OAuth tokens are present in the URL, wait for Supabase to establish the session
-    const hasOAuthTokens =
-      (typeof window !== "undefined") && (
-        window.location.hash.includes("access_token") ||
-        window.location.search.includes("access_token") ||
-        window.location.search.includes("code")
-      );
-    if (hasOAuthTokens) return;
-
-    const isOnboardingComplete = localStorage.getItem("onboardingComplete") === "true";
-
-    let targetPath = "/";
-    // Prioritize authenticated user first to avoid loops after OAuth
-    if (user) {
-      targetPath = isOnboardingComplete ? "/dashboard" : "/onboarding";
-    } else if (!hasSeenSplash) {
-      targetPath = "/";
-    } else {
-      targetPath = "/auth";
-    }
-
-    if (window.location.pathname !== targetPath) {
-      navigate(targetPath, { replace: true });
-    }
-  }, [hasSeenSplash, user, loading, navigate]);
-
-
-  // Show a loading state while waiting for auth
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <p>Loading application...</p>
+        <p>Loading...</p>
       </div>
     );
   }
 
+  if (!user) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  if (!isOnboardingComplete && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" state={{ from: location }} replace />;
+  }
+
+  return children;
+};
+
+const AppRoutes = () => {
+  const [hasSeenSplash, setHasSeenSplash] = useState(() => localStorage.getItem("hasSeenSplash") === "true");
+
+  const handleSplashContinue = () => {
+    setHasSeenSplash(true);
+    localStorage.setItem("hasSeenSplash", "true");
+  };
+
+  const isOnboardingComplete = localStorage.getItem("onboardingComplete") === "true";
+
   return (
     <Routes>
-      <Route path="/" element={<SplashScreen onContinue={() => { setHasSeenSplash(true); localStorage.setItem("hasSeenSplash", "true"); navigate("/auth", { replace: true }); }} />} />
+      <Route path="/" element={!hasSeenSplash ? <SplashScreen onContinue={handleSplashContinue} /> : <Navigate to={isOnboardingComplete ? "/dashboard" : "/auth"} replace />} />
       <Route path="/auth" element={<AuthPage />} />
-      <Route
-        path="/onboarding"
-        element={
-          <RequireAuth>
-            <Onboarding onComplete={() => {
-              localStorage.setItem("onboardingComplete", "true");
-              navigate("/dashboard", { replace: true });
-            }} />
-          </RequireAuth>
-        }
-      />
+
+      {/* Protected Routes */}
+      <Route path="/onboarding" element={<RequireAuth><Onboarding onComplete={() => localStorage.setItem("onboardingComplete", "true")} /></RequireAuth>} />
       <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/check-in" element={<RequireAuth><CheckIn /></RequireAuth>} />
       <Route path="/rescue-me" element={<RequireAuth><RescueMe /></RequireAuth>} />
@@ -112,21 +93,6 @@ const App = () => {
       </QueryClientProvider>
     </AuthProvider>
   );
-};
-
-const RequireAuth = ({ children }: { children: JSX.Element }) => {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  return children;
 };
 
 export default App;

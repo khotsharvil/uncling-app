@@ -1,25 +1,49 @@
+// src/context/AuthContext.tsx
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "../supabaseClient";
 
+interface UserProfile {
+  id: string;
+  email: string;
+  attachment_style: string;
+  // Add any other fields from your `users` table here
+}
+
 interface AuthContextType {
-  user: any | null;
-  loading: boolean; // ✅ Added loading property
+  user: UserProfile | null;
+  loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  loading: true, // ✅ Updated default value
+  loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true); // ✅ Added loading state
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 🔹 Google Sign-in function
+  // Function to fetch the full user profile from the `users` table
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, email, attachment_style") // Add all columns you need
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching user profile:", error);
+      // In a real app, you might handle this error more gracefully
+      return null;
+    }
+    return data;
+  };
+
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -29,50 +53,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // 🔹 Sign out
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
   };
 
   useEffect(() => {
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-        setLoading(false); // ✅ Set loading to false after the auth state is known
+    // This function will handle both initial session checks and auth state changes
+    const handleAuth = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Fetch the custom user profile data
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
 
-        // Clean URL after OAuth redirect to avoid re-parsing tokens and warnings
-        if (typeof window !== "undefined") {
-          const hasTokensInUrl =
-            window.location.hash.includes("access_token") ||
-            window.location.search.includes("access_token") ||
-            window.location.search.includes("code");
-          if (hasTokensInUrl) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
+    handleAuth();
+
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session) {
+          const profile = await fetchUserProfile(session.user.id);
+          setUser(profile);
+        } else {
+          setUser(null);
         }
+        setLoading(false);
       }
     );
 
-    // Initial check for session to handle page load
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user || null);
-      setLoading(false);
-
-      // Also clean URL on initial load if tokens are present
-      if (typeof window !== "undefined") {
-        const hasTokensInUrl =
-          window.location.hash.includes("access_token") ||
-          window.location.search.includes("access_token") ||
-          window.location.search.includes("code");
-        if (hasTokensInUrl) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-    });
-
+    // Cleanup subscription
     return () => {
-      subscription?.subscription?.unsubscribe?.();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
