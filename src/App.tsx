@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
@@ -75,18 +75,22 @@ const AppRoutes = () => {
       <Route path="/auth" element={<AuthPage />} />
       <Route
         path="/onboarding"
-        element={<Onboarding onComplete={() => {
-          localStorage.setItem("onboardingComplete", "true");
-          navigate("/dashboard", { replace: true });
-        }} />}
+        element={
+          <RequireAuth>
+            <Onboarding onComplete={() => {
+              localStorage.setItem("onboardingComplete", "true");
+              navigate("/dashboard", { replace: true });
+            }} />
+          </RequireAuth>
+        }
       />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/check-in" element={<CheckIn />} />
-      <Route path="/rescue-me" element={<RescueMe />} />
-      <Route path="/secure-chat" element={<SecureChat />} />
-      <Route path="/before-you-rest" element={<BeforeYouRest />} />
-      <Route path="/progress" element={<Progress />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/check-in" element={<RequireAuth><CheckIn /></RequireAuth>} />
+      <Route path="/rescue-me" element={<RequireAuth><RescueMe /></RequireAuth>} />
+      <Route path="/secure-chat" element={<RequireAuth><SecureChat /></RequireAuth>} />
+      <Route path="/before-you-rest" element={<RequireAuth><BeforeYouRest /></RequireAuth>} />
+      <Route path="/progress" element={<RequireAuth><Progress /></RequireAuth>} />
+      <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -108,6 +112,21 @@ const App = () => {
       </QueryClientProvider>
     </AuthProvider>
   );
+};
+
+const RequireAuth = ({ children }: { children: JSX.Element }) => {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  return children;
 };
 
 export default App;
