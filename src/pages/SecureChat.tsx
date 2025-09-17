@@ -7,6 +7,7 @@ import { ArrowLeft, Send } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { generateGeminiResponse } from "@/lib/geminiClient";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "../context/AuthContext";
 
 interface Message {
   id: string;
@@ -17,7 +18,8 @@ interface Message {
 
 const SecureChat = () => {
   const navigate = useNavigate();
-  const userId = "7eb8f894-ca27-4c0d-87d4-c3a18bb6fedf"; // Replace with dynamic user ID later
+  const { user } = useAuth();
+  const userId = user?.id;
   const attachmentStyle = localStorage.getItem("attachmentStyle") || "secure";
 
   const [messages, setMessages] = useState<Message[]>([
@@ -32,6 +34,7 @@ const SecureChat = () => {
 
   useEffect(() => {
     const fetchChatHistory = async () => {
+      if (!userId) return;
       const { data, error } = await supabase
         .from("chat_history")
         .select("id, user_message, ai_response, created_at")
@@ -65,7 +68,7 @@ const SecureChat = () => {
   }, [userId]);
 
   const sendMessage = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !userId) return;
 
     const userMessageText = inputText.trim();
 

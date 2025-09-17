@@ -37,6 +37,10 @@ The JSON format must be:
   };
 
   try {
+    if (!GEMINI_API_KEY) {
+      console.error("Gemini API key missing: set VITE_GEMINI_API_KEY in your env");
+      return '{"message":"I\'m here with you.","actions":[]}';
+    }
     const res = await axios.post(GEMINI_URL, body, {
       headers: { "Content-Type": "application/json" }
     });

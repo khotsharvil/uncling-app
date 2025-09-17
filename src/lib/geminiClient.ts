@@ -6,6 +6,10 @@ const GEMINI_API_URL =
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 export const generateGeminiResponse = async (userMessage: string) => {
   try {
+    if (!GEMINI_API_KEY) {
+      console.error("Gemini API key missing: set VITE_GEMINI_API_KEY in your env");
+      return "Sorry, the AI service is temporarily unavailable.";
+    }
     const prompt =
       "You are a compassionate and concise mental health companion. Validate the user’s feelings and offer gentle, helpful replies. Do not suggest talking to a friend or therapist unless the user explicitly asks about it. Keep your reply short, 3–5 sentences.\n\nUser: " +
       userMessage;
